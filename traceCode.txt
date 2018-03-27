@@ -1,0 +1,86 @@
+DB Assignment 2 Tracecode
+
+// Client Side
+
+App.java:  ** Entry **
+	- creates a connection driver (“VanillaDbJdbcDriver” or “SpDriver”)	- found in core
+	- pass the created driver to “As2benchmarker”, then performs load testbed/benchmark
+	(as2benchmarker extends Benchmarker.java)
+
+VanillaDbJdbcDriver.java:
+	- supports method “connect”, creates and returns a connection to the db server
+
+VanillaDbSpDriver.java:
+	- wraps “SpDriver” connection into VanillaDbSpConnection, and return.
+
+Benchmarker.java:
+	- in constructor: creates “StatisticMgr”  // homework material?
+	- loadTestbed: Get a connection from driver, use the connection object to execute method “executeLoadingProcedure”
+	- executeLoadingProcedure: abstract method, implemented in “As2BenchMarker.java”
+	- benchmark: Create NUM_RTES of emulators found in “RemoteTerminalEmulator.java”. Then, runs and records results. Result output using StatisticMgr.outputReport()
+
+As2BenchMarker:
+	- implementation executeLoadingProcedure: call connection’s methods that calls the StoredProcs (method “callStoredProc”)
+
+RemoteTerminalEmulator.java:  <extends Thread>
+	- run(): repeatedly run “executeTxnCycle()”
+	- executeTxnCycle(): calls getTxExecutors() and repeatedly calls executor.execute() (the “executer is As2TxExecutor”)
+	- abstracts getTxType() and getTxExecutors() (implemented in As2Rte.java)
+
+As2Rte.java:
+	- constructor creates class “As2TxExecutor”, which takes parameter object of class “As2ParamGen”
+	- implements getNextTxType(): ???
+	- implements getTxExecutor: returns the As2TxExecutor created in constructor
+
+As2ParamGen.java: <extends TxParamGenerator>
+	- basically generates numbers of random value to imitate different transactions
+
+As2TxExecutor.java: <extends TransactionExecutor>
+	- method execute(): saves and returns variable “result”, which comes from calling method “executeTxn()” (defined in TransactionExecutor.java)
+
+TransactionExecutor.java:
+	- abstracts methods “execute()” and “getJdbcExecutor()”
+	- executeTxn(): according to different connection method, calls:
+		JDBC: calls the execute() method of a “jdbcExecutor”
+		SP: calls the connection’s “callStoredProcedure()” method
+
+** jdbcExecutor.java: (should be a store procedure equivalent)
+	- method execute(): according to txType (READ_ITEM/UPDATE_PRICE) perform operations
+		- READ_ITEM: creates new “As2ReadItemJob” and calls its “execute()” method
+		- ASSIGNEMT 2 HERE, CREATE A “As2JdbcUpdateJob”
+
+As2JdbcUpdate.java:
+	- method execute(): go thru the operations in the slides, connection.createStatement() ->
+	Statement.executeQuery() -> loop thru result set -> return the result wrapped in a
+	“VanillaDbJdbcResultSet”
+
+VanillaDbResultSet.java:
+	- wrap for result set, add bool “isAutoCommited”
+
+
+// Server Side
+
+StartUp.java: *entry*
+	- According to BENCHMARKPARAMETERS, start up the DB using either
+		“VanillaDbJdbcStartup()” or “VanillaDbSpStartup()”, stored in variable “sut”
+
+VanillaDbJdbcStartup.java:
+	- nothing too special
+
+VanillaDbSpStartup:
+	- method StartUp(): VanillaDb.int() with parameter calling “getSPFactory()”
+	- method getSPFactory(): return new “As2StoredProcFactory”
+
+As2StoredProcFactory.java:
+	- basically a switch statement, creating different “Proc”s to handle different operations
+		homework2 implementation here.
+
+BasicStoredProcedure.java:
+	- abstracts method “executeSql()”, used by different store procedure to accomplish different
+	functionalities.
+	- using class “ParamHelper” // ??
+	- method “execute()”: calls “executeSql()”, and commits.
+
+// All the following procedures implements the “BasicStoredProcedure” class
+	As2TestbedLoaderProc
+	As2ReadItemProc
